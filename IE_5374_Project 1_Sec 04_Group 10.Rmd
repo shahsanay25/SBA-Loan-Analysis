@@ -1,0 +1,710 @@
+---
+title: "Project 1"
+author: "Group 10"
+date: "10/24/2021"
+output: pdf_document
+---
+
+```{r setup,warning=FALSE,include=FALSE}
+knitr::opts_chunk$set(echo = TRUE,warning=FALSE)
+```
+
+##   Title: SBA Loan Analysis: Should the Loan be Approved?  
+
+
+# Overview:
+  
+  The U.S. Small Business Administration (SBA) was founded in 1953. Small businesses have been a primary source of job creation in the US. SBA assists these small businesses through a loan guarantee program which is designed to encourage banks to grant loans to small businesses. SBA reduces the risk for a bank by guaranteeing a portion of the loan. So, if in case a loan goes into default, SBA then covers the amount they guaranteed.
+    There have been many success stories of start-ups receiving SBA loan guarantees and there have also been stories of small businesses and/or start-ups that have defaulted on their SBA-guaranteed loans. The rate of default on these loans has been a source of controversy for decades. Therefore, banks are still faced with difficulty if they should grant such a loan because of the high risk of default involved.
+    One way to inform their decision-making is through analyzing relevant historical data such as the datasets and then classifying the loan into higher risk or lower risks to off the loan. Consequently, through this project, we would like to use the Data Wrangling Process for easy access to analyze and address how the real-world data affects the Loan Approvals/ Disbursements and the Fraud factors related to it.
+    From this project we hope to accomplish how the Data wrangling can be used to analyse the operations of SBA. We'll be addressing a few business questions to anaylse information for Loan Approval in various situations.
+
+
+## Data Acquisition
+
+# Libraries
+# The libraries are attached using the library() function.
+
+```{r, echo = FALSE}
+library(tidyr)
+library(dplyr)
+library(magrittr)
+library(tidyr)
+library(stringr)
+library(lubridate)
+library(stringr)
+library(lemon)
+library(knitr)
+library(ggplot2)
+library(gridExtra)
+library(forcats)
+library(sf)
+library(plotly)
+library(readr)
+library(tidyverse)
+
+```
+
+
+# Importing the Dataset
+
+# The dataset SBAnational is imported using read_csv().
+
+```{r,warning=FALSE,echo = FALSE}
+
+df_SBA  <- read_csv("SBAnational.csv",col_types=cols(ChgOffPrinGr=col_number(),SBA_Appv=col_number(),GrAppv=col_number()))
+```
+
+
+
+```{r, warning=FALSE,echo = FALSE}
+# Total Number of Records
+ num_rec<- df_SBA%>% 
+    summarise(total_records=n())
+  caption="Record Count"
+```
+
+
+
+```{r,warning=FALSE,echo = FALSE}
+# Summary Statistics for DisbursementGross
+  sum_stat<-df_SBA %>% 
+    summarise (max_disbursement=max(DisbursementGross), min_disbursement=min(DisbursementGross))
+  caption="Summary Statistics for DisbursementGross"
+
+```
+
+
+
+```{r, warning=FALSE,echo = FALSE}
+# Summary Statistics for GrAppv
+  sum_gr<-df_SBA %>% 
+    filter(is.na(GrAppv)==FALSE) %>% 
+    summarise(max_disbursement=max(GrAppv), min_disbursement=min(GrAppv))
+            caption="Summary Statistics for GrAppv"
+    
+
+```
+
+
+
+```{r,warning=FALSE, echo = FALSE}
+# Summary Statistics for SBA_Appv  
+sum_sba<-df_SBA %>% 
+   summarise(max_disbursement=max(SBA_Appv), min_disbursement=min(SBA_Appv))
+  caption="Summary Statistics for SBA_Appv"
+
+```
+
+
+
+```{r,warning=FALSE, echo= FALSE}
+# Count by State
+  cs<-df_SBA %>% 
+    filter(is.na(State)== FALSE)%>%
+    group_by(State) %>%
+    summarise(total_records=n())
+  caption="Record Count by State"
+```
+
+
+
+```{r,warning=FALSE, echo = FALSE}
+# Count by City
+  cc<-df_SBA %>% 
+    filter(is.na(City)== FALSE)%>%
+    group_by(State,City) %>%
+    summarise(total_records=n())
+  caption="Record Count by City"
+```
+
+
+
+```{r,warning=FALSE, echo = FALSE}
+# Count by Bank
+  cb<-df_SBA %>% 
+    filter(is.na(Bank)== FALSE)%>%
+    summarise(total_records=n())
+  caption="Record Count by Bank"
+```
+
+
+
+```{r,warning=FALSE, echo = FALSE}
+# Count by Year
+  cy<-df_SBA %>% 
+    filter(is.na(ApprovalDate) ==FALSE) %>% 
+    separate(ApprovalDate, c("date","month", "year"), "/") %>% 
+    group_by(year) %>% 
+    summarise(total_records=n()) 
+  caption="Record Count by Year"
+```
+
+
+
+```{r,warning=FALSE, echo=FALSE}
+# Unique Cities
+  uc<-df_SBA %>% 
+    summarise (SBA_City=length(unique(City))) 
+  caption="Total number of City"
+
+```
+
+
+
+```{r,warning=FALSE, echo = FALSE}
+# Unique Banks
+  ub<-df_SBA %>% 
+    summarise (SBA_Bank=length(unique(Bank)))
+  caption="Total number of Banks"
+
+```
+
+
+
+
+
+```{r, echo = FALSE}
+## Data Wrangling
+# Structuring and Cleaning the Data
+
+# Converting same city, bank and bank state into upper case
+df_SBA <-df_SBA %>% 
+mutate(City= toupper(City))
+
+df_SBA <-df_SBA %>% 
+  mutate(Bank= toupper(Bank))
+
+df_SBA <-df_SBA %>% 
+  mutate(BankState=toupper(BankState))
+```
+
+
+
+```{r, echo = FALSE}
+# Converting String to Dates
+df_SBA <-  df_SBA %>% 
+  filter(is.na(ApprovalDate)==FALSE) %>% 
+    mutate( 
+    ApprovalDate=as.Date(ApprovalDate, format='%d-%b-%y'))
+
+df_SBA <-  df_SBA %>% 
+  mutate(
+    ChgOffDate=as.Date(ChgOffDate ,format='%d-%b-%y'))
+         
+df_SBA <-  df_SBA %>%   
+         mutate(
+           DisbursementDate=as.Date(DisbursementDate, format='%d-%b-%y'))
+```
+
+
+
+```{r,warning=FALSE, echo = FALSE}
+# Count
+
+# Disbursment Date
+  dd<-df_SBA %>% 
+    separate(DisbursementDate, c("year","month", "day"), "-") %>% 
+    select(year) %>% 
+    group_by(year) %>% 
+    summarise(total_records=n())
+  caption="Disbursment Date"
+```
+
+
+
+```{r,warning=FALSE, echo = FALSE}
+# When a loan is declared to be in default
+  ld<-df_SBA %>% 
+    separate(ChgOffDate, c("year","month", "day"), "-") %>% 
+    select(year) %>% 
+    group_by(year) %>% 
+    summarise(total_records=n())
+  caption=" When a loan is declared to be in default"
+```
+
+
+
+```{r,warning=FALSE, echo = FALSE}
+# SBA commitment issued by year
+  sba_c<-df_SBA %>% 
+    separate(ApprovalDate, c("year","month", "day"), "-") %>% 
+    select(year) %>% 
+    group_by(year) %>% 
+    summarise(total_records=n())
+  caption=" SBA commitment issued by year"
+```
+
+
+
+```{r,warning=FALSE, echo = FALSE}
+# Year of commitment for the loan
+  comm<-df_SBA %>% 
+    select(ApprovalFY) %>% 
+    group_by(ApprovalFY) %>% 
+    summarise(total_records=n())
+  caption="  Year of commitment for the loan"
+```
+
+
+
+```{r,warning=FALSE, echo = FALSE}
+# New and Existing Establishment
+  ne<-df_SBA %>% 
+    select(NewExist) %>% 
+    group_by(NewExist) %>% 
+    summarise(total_records=n())
+  caption="  New and Existing Establishment"
+```
+
+
+
+```{r,warning=FALSE, echo = FALSE}
+# Loan status Charged Off
+  ls<-df_SBA %>% 
+    select(MIS_Status) %>% 
+    group_by(MIS_Status) %>% 
+    summarise(total_records=n())
+  caption="  Loan status charged off = CHGOFF, Paid in full =PIF"
+```
+
+
+
+```{r,warning=FALSE, echo = FALSE}
+# Days Elapsed
+de<-df_SBA <- df_SBA %>%
+  mutate(days_elapsed = DisbursementDate- ApprovalDate)
+```
+
+
+
+
+## Business Questions 
+
+# 1.1 Classify the Loan Amount on the basis of Years, to identify the number of Loans approved in a Fiscal Year. 
+
+```{r, echo = FALSE}
+#1.1
+loan_year<-df_SBA%>%
+    select(ApprovalFY,SBA_Appv)%>%                             #ApprovalFY, SBA_Appr are selected         
+    group_by(ApprovalFY)%>%                                    #Grouped by ApprovalFY
+    summarise(ApprovedLoan=sum(SBA_Appv))%>%  
+    arrange(desc(ApprovedLoan))%>% 
+    top_n(20)%>%
+    stats::na.omit()
+```
+
+```{r fig.align="Center", fig.width = 10, echo=FALSE}
+
+ #Plot to support the statistics
+yl<-ggplot(loan_year,aes(x=ApprovalFY,y=ApprovedLoan)) +            
+  geom_bar(stat="identity", fill="steelblue")+
+  theme_bw() +
+  ggtitle("Loan Approved per Year")+
+  theme(plot.title = element_text(hjust = 0.5))+
+  xlab('Year')+
+  ylab('Approved Loan')+
+  scale_color_manual(values = colors)+
+  theme(axis.text.x = element_text(size =8,angle=90,hjust=0.9,vjust=0.2))
+yl
+
+```
+
+#1.2 Classify the Loan Amount on the basis of states, to identify the Loan amount each state is giving out.
+```{r, echo = FALSE}
+#1.2
+ loan_state<-df_SBA%>%
+    select(State,SBA_Appv)%>%                                #State, SBA_Appr are selected
+    group_by(State)%>%                                       #Grouped by State
+    summarise(StateLoan=sum(SBA_Appv))%>%                    #Summarised StateLoan
+    stats::na.omit()%>%                         
+    arrange(desc(StateLoan))%>%                              #Arrange StateLoan in descending order                    
+    slice(1:10)
+``` 
+
+
+```{r fig.align="Center", fig.width = 10, echo=FALSE}
+ #Plot to support the statistics
+sl<-ggplot(loan_state,aes(x=State,y=StateLoan)) +                   
+  geom_bar(stat="identity", fill="steelblue")+
+  theme_bw() +
+  ggtitle("Loan Approved by State")+
+  theme(plot.title = element_text(hjust = 0.5))+
+  scale_color_manual(values = colors)+
+  theme(axis.text.x = element_text(size =8,angle=90,hjust=0.9,vjust=0.2))
+sl
+
+```
+# Conclusion
+  The given data provides information about the total amount of loan approved by The U.S. Small Business Administration (SBA) between the years 1962-1984.
+  Its important to analyse reasons for the differences in the low and high risks of default rates. The given data shows the total amount of loan approved by The U.S. Small Business Administration (SBA) on the basis of Top 10 States, to better understand the growth of businesses by states. 
+
+
+#2.1 Amount of Loans given by Banks and the total number of Loans given. 
+#2.2 Banks face with a difficult choice as to whether they should grant a loan because of the high risk of default. Show the total number of records for Banks to analyse the risk factor on the basis of money lended.
+
+```{r, echo = FALSE}
+#2.1
+tempo<-as.data.frame(table(df_SBA$Bank))                        #Create Dataframetempo                                          
+names(tempo)[1]<-'BankName'                                     #Assign tempo1 to BankName                     
+names(tempo)[2]<-'TotalNumberOfLoans'                           #Assign Tempo2 to TotalNumberOfLoans
+
+ 
+ bank_freq<-tempo%>%                                            #Assign Tempo as bank_freq
+    arrange(desc(TotalNumberOfLoans))%>%                        #Arrange TotaNumberOfLoans in descending order
+    select(BankName,TotalNumberOfLoans)%>%                      #Select columns BankName and totalNumberOfLoans
+    slice(1:10)%>%                                              #Slice data in top 10 
+    group_by(BankName)                                          #Group by column BankName
+ 
+
+```
+
+
+```{r fig.align="Center", fig.width = 10, echo=FALSE}
+#Plot to support statistics 
+Bank_Loan<-ggplot(bank_freq,aes(BankName,TotalNumberOfLoans)) +    
+  geom_bar(stat="identity", fill="skyblue")+
+  theme_bw() +
+  ggtitle("Total Number of Loans given by Banks")+
+  theme(plot.title = element_text(hjust = 0.5))
+  Bank_Loan+labs(x="Bank",y="Loan Provided" ,color = "Legend")+
+  scale_color_manual(values = colors)+
+  theme(axis.text.x = element_text(size =8,angle=90,hjust=0.9,vjust=0.2))
+```
+
+
+```{r, echo = FALSE}
+#2.2
+sbaloan<-df_SBA%>%                           
+    select(Bank,SBA_Appv)%>%                                    #Select columns Bank and SBA_Appv
+    group_by(Bank)%>%                                           #Group by Bank 
+    summarise(Loans=sum(SBA_Appv))%>%                           #Summarise Data by Loans
+    stats::na.omit()%>% 
+    arrange(desc(Loans))%>%                                     #Arrange Loans in descending order
+    slice(1:10)                                                 #Slice data to top 10
+```
+
+
+```{r fig.align="Center", fig.width = 10, echo=FALSE}
+#Plot to support Statistics 
+sbaloan
+Bank_Money<-ggplot(sbaloan,aes(Bank,Loans)) +
+  geom_bar(stat="identity", fill="skyblue")+
+  theme_bw() +
+  ggtitle("Total Amount of Money given by Banks")+
+  theme(plot.title = element_text(hjust = 0.5))
+  Bank_Money+labs(x="Bank",y="Loan Approved" ,color = "Legend")+
+  scale_color_manual(values = colors)+
+  theme(axis.text.x = element_text(size =8,angle=90,hjust=0.9,vjust=0.2))
+```
+
+# Conclusion 
+  Since SBA only guarantees a portion of the entire loan balance, banks faced with a difficult choice as to whether they should grant such a loan because of the high risk of defaulters. One way to inform their decision making is through analyzing relevant data. The Graph above shows number of Loans granted and the total amount of money provided by various banks 
+
+
+
+#Q3. What is the Gross amount of Loan Approved by the banamount of the Approved Loan.-by bank,by year
+```{r, echo = FALSE}
+ 
+sba_year_loan<-df_SBA%>%                                          
+    select(ApprovalFY,SBA_Appv)%>%                              #Select ApprovalFY and SBA_Appv
+    group_by(ApprovalFY)%>%                                     #Group by column ApproalFY
+    summarise(SBALoanPerYear=sum(SBA_Appv))%>%                  #Summarise SBALoanPerYear
+    stats::na.omit()%>%
+  arrange(desc(SBALoanPerYear))%>%
+    slice(1:10)                                                 #Slice data to top 10                                            
+ 
+
+ 
+gr_year_loan<-df_SBA%>% 
+    select(ApprovalFY,GrAppv)%>%                               #Select ApprovalFY and GrAppv
+    group_by(ApprovalFY)%>%                                    #Group by column ApprovalFY
+    summarise(GrLoanPerYear=sum(GrAppv))%>%                    #Summarise GrLoanPerYear
+    stats::na.omit()%>% 
+     arrange(desc(GrLoanPerYear))%>%
+    slice(1:10)                                                #Slice data to top 10                                    
+```
+
+
+```{r fig.align="Center", fig.width = 10, echo=FALSE}
+
+#Plot to Support statistics
+x<-ggplot(sba_year_loan, aes(ApprovalFY,SBALoanPerYear )) +    
+  geom_bar(stat="identity", fill="SteelBlue")+
+  theme_bw() +
+  xlab('Year')+
+ylab('SBA_Loan')+
+   ggtitle("Total SBA Aproved Loan")+
+theme(plot.title = element_text(hjust = 0.5))
+
+ 
+y<-ggplot(gr_year_loan, aes(ApprovalFY,GrLoanPerYear )) +
+  geom_bar(stat="identity", fill="Yellow")+
+  theme_bw() +
+  xlab('Year')+
+ylab('Gr_Loan')+
+  ggtitle("Total Gross Approved Loan")+
+theme(plot.title = element_text(hjust = 0.5))
+
+#Representation of approved loans by SBALoanPerYear & GrLoanPerYear
+grid3<-grid.arrange(x,y,ncol=2)
+grid3
+```
+
+#Conclusion
+  
+  SBA acts much like an insurance provider to reduce the risk for a bank by taking on some of the risk through guaranteeing a portion of the loan. In the case that a loan goes into default, SBA then covers the amount they guaranteed. The graph shows the  Gross loan amount approved by SBA Per year and the Gross amount approved by the Bank, since SBA loans only guarantee a portion of the entire loan balance, banks will incur some losses if a small business defaults on its SBA-guaranteed loan. 
+
+
+#5.  How long did the bank take to disburse the loans once it was approved?
+
+```{r, echo = FALSE}
+
+Time_elapsed <-df_SBA %>%ggplot(aes(x=ApprovalFY, y=days_elapsed/12,color="Duration in Months")) +
+   ggtitle("Time taken to Disburse the loan(In Months)")+
+   labs(x="Years",y="Total no of loans")+
+   scale_x_continuous(n.breaks=8,limits= c(2000,2015))+
+     scale_y_continuous(n.breaks=8,limits= c(0,300))+
+   theme(plot.title = element_text(hjust=0.5),legend.position = "none")+
+   geom_point(size=2,shape=19)
+Time_elapsed
+```
+  
+#Conclusion
+  The duration of days between once loan was approved and bank disbursed the loan was quite high initially and it has improved with years the duration has reduced though the number of applications have increased over the time.
+
+
+
+#6. What are the toal number of Jobs created by a Firm annually?
+
+```{r, echo = FALSE}
+Jobs_Created <- df_SBA %>%                                             
+select(CreateJob,ApprovalFY)%>%                                      #Select Columns CreateJob & ApprovalFY
+group_by(ApprovalFY)%>%                                              #group_by ApprovalFY
+filter(is.na(ApprovalFY)==FALSE)%>%                                  #filter ApprovalFY for NA values
+summarise(Total_jobs_created_anually =n())                           #summarise Total_jobs_created_anually
+ 
+```
+
+
+```{r fig.align="Center", fig.width = 10, echo=FALSE}
+
+#Plot graph to support Statistics 
+Jobs <-Jobs_Created %>% ggplot(aes(x=ApprovalFY, y=Total_jobs_created_anually,color="firebrick")) +
+scale_x_continuous(n.breaks=8,limits= c(1985,2015))+
+theme(plot.title = element_text(hjust=0.5),legend.position = "none")+
+geom_line(size=2)
+Jobs
+```
+
+#Conclusion
+  Economists and statisticians use several methods to track economic growth. One of the most significant of these are the Employment growth. The graph above shows the increase in number of employement between the years 2001-2005 and then a dip. This could be because of the Great Recession that took place in 2008 in the United States, leading in increase of unemployment. 
+
+
+#7. Show the number of Loans taken by business in  rural and urban regions over the years. Plot a line graph and conclude the analysis
+```{r,fig.align="Left", fig.width = 10, echo = FALSE}
+
+
+Type_UR<- df_SBA %>% 
+        select(UrbanRural,ApprovalFY) %>% 
+        group_by(UrbanRural,ApprovalFY)%>% 
+        filter(UrbanRural ==1 ||UrbanRural ==2)%>% 
+        summarise(total_records=sum(UrbanRural))%>% 
+        arrange(desc(ApprovalFY))%>%
+        pivot_wider(names_from = UrbanRural, values_from = total_records)
+
+
+Type_UR <-data.frame(Type_UR)
+colnames(Type_UR)[2] <- "Urban"
+colnames(Type_UR)[3] <- "Rural"
+colors <- c("Urban" = "Darkred", "Rural" = "Green")
+```
+
+#Plot to support statistics
+``````{r,fig.align="Left", fig.width = 10, echo = FALSE}
+Type_UR_plot <-  ggplot(Type_UR,aes(x=ApprovalFY)) +
+  geom_line(aes(y=Urban ,color ="Urban"),size=1.2)+
+  geom_line(aes(y=Rural ,color ="Rural"),size=1.2)+
+  ggtitle("Loans Taken By Rural and Urban Region Over the Years")+
+  theme(plot.title = element_text(hjust = 0.5))+
+  labs(x="Years",y="Total no of loans" ,Type = "Legend")+
+  scale_color_manual(values = colors)+
+ scale_x_continuous(n.breaks=5,limits= c(1995,2015))+
+  scale_y_continuous(n.breaks=8,limits= c(0,70000))+
+  theme(axis.text.x = element_text(size =10,hjust=0.9,vjust=0.2))
+ 
+Type_UR_plot
+
+```
+
+# Conclusion
+ 
+  In the above graph, we can see the Total number of loans taken by businesses in rural and urban areas over the period of years. We can anyse the Employment growth of economy o=looking at the employement generation in the urban and Rural aread.
+
+# 8. What is the loss incurred by banks based on the bad loans?
+```{r, echo = FALSE}
+
+Loss_incurred_by_Bank<-df_SBA %>%
+  select(ChgOffPrinGr,State,Bank) %>%
+  group_by(Bank)%>%
+  summarise(Total_Amount=sum(ChgOffPrinGr))%>%
+  filter(Total_Amount>0)%>%
+  arrange(desc(Total_Amount))%>%
+  slice(1:10)
+
+```
+
+
+```{r, echo = FALSE}
+Loss_incurred_by_Bank_plot <- ggplot(Loss_incurred_by_Bank, aes(x=reorder(`Bank`, -Total_Amount),y=Total_Amount )) +
+geom_bar(stat="identity", fill="SteelBlue")+
+ geom_text(aes(label=Total_Amount),vjust=1.6, color="black", size=2)+
+theme_minimal() +
+xlab('Banks')+
+ylab('Total Loss ($)')+
+ggtitle("Debt likely to be uncollected")+
+theme(axis.text.x = element_text(size =5,angle = 90,hjust=0.9,vjust=0.2)) +
+theme(plot.title = element_text(hjust=0.5))+
+geom_vline(xintercept = 0)+
+geom_hline(yintercept = 0)
+Loss_incurred_by_Bank_plot
+```
+# Conclusion
+
+  A chargeoff is a declaration by a creditor that an amount of debt is unlikely to be collected. This occurs when a consumer becomes severely delinquent on a debt. Traditionally, creditors make this declaration at the point of six months without payment. The banks in this scrutinize the defaulters into high-risk defaulter list, if not met with the deadline. 
+
+
+# 9. What are High and Low Doc Programs? Was it useful to the customers?
+```{r, echo = FALSE}
+ df_type_lowdoc <- df_SBA %>% 
+    select(State,LowDoc)%>% 
+    group_by(State,LowDoc)%>% 
+    filter(LowDoc =='Y' || LowDoc =='N')%>%
+    filter(is.na(State)==FALSE)%>%
+    summarise(Total=n())%>%
+    arrange(desc(Total))%>%
+    pivot_wider(names_from = LowDoc, values_from = Total)
+  
+  
+  df_type_lowdoc  <-data.frame(df_type_lowdoc) 
+  colnames(df_type_lowdoc)[2] <- "HighDocLoan"
+  colnames(df_type_lowdoc)[3] <- "LowDocLoan"
+ N <- df_type_lowdoc %>% 
+    select(State,HighDocLoan)%>%
+  arrange(desc(HighDocLoan))%>%
+   top_n(5)
+  
+Y<- df_type_lowdoc %>% 
+    select(State,LowDocLoan)%>%
+    arrange(desc(LowDocLoan))%>%
+    top_n(5)
+
+ H <- N %>% ggplot( aes(x=reorder(`State`,-HighDocLoan),y=(HighDocLoan))) +
+   geom_bar(stat="identity", fill="Lightpink2")+
+   geom_text(aes(label=HighDocLoan),vjust=1.6, color="black", size=2.5)+
+   theme_minimal() +
+   xlab('States')+
+   ylab('Total HighDocLoan')+
+   theme(axis.text.x = element_text(size =10,angle = 90,hjust=0.9,vjust=0.2)) +
+   geom_vline(xintercept = 0)+
+   geom_hline(yintercept = 0)
+  
+ 
+ L <- Y %>% ggplot( aes(x=reorder(`State`,-LowDocLoan),y=(LowDocLoan))) +
+   geom_bar(stat="identity", fill="mediumpurple2")+
+   geom_text(aes(label=LowDocLoan),vjust=1.6, color="black", size=2.5)+
+   theme_minimal() +
+   xlab('States')+
+   ylab('Total LowDocLoan')+
+   theme(axis.text.x = element_text(size =10,angle = 90,hjust=0.9,vjust=0.2)) +
+   geom_vline(xintercept = 0)+
+   geom_hline(yintercept = 0)
+ 
+Type_loan <- grid.arrange(H,L,ncol=1)
+Type_loan
+
+```
+
+# Conclusion
+  
+  LowDoc (Y = Yes, N = No): In order to process more loans efficiently, a “LowDoc Loan” program was implemented where loans under $150,000 can be processed. It’s a government supported scheme to startup small busniness and uplift the society, it’s smooth process hence can be taken up easily. 
+“Yes” indicates loans with a one-page application, and 
+“No” indicates loans with more information attached to the application.
+From the graph, we can conclude that the number of states that has opted for more Low Doc Loans and High Doc Loans. The highest is California for High Doc Loans and Texas for Low Doc Loans.
+  Over the years, number of Low Doc Loans have been increased and it was a smooth process and which in turn brought more business to the banks.
+
+# 10. How many loans where given on the basis of New and Existing Business over the years?
+
+```{r, echo = FALSE}
+Total_NewExist_loans <- df_SBA %>% 
+  select(NewExist,ApprovalFY)%>% 
+  group_by(ApprovalFY,NewExist)%>%
+    filter(NewExist ==1 || NewExist ==2)%>% 
+  summarise(Total_NewExist_loans =n())
+
+NewEx <-Total_NewExist_loans %>% ggplot(aes(x=ApprovalFY, y=Total_NewExist_loans, fill=NewExist)) +
+  geom_bar(stat="identity")+
+  ggtitle("New and Existing Loans")+
+  labs(x="Years",y="Total no of loans")+
+  scale_x_continuous(n.breaks=8,limits= c(1985,2015))+
+  theme(plot.title = element_text(hjust=0.5))+
+  geom_point()
+NewEx 
+```
+
+#Conclusion 
+  The New and Existing Loans graph shows the Number of loans taken for Existing Business(1) and New Business(2) and the loans given in both the types of Businesses have increased over the years and there was a spike from 2004 to 2008  after which Bank started scrutinizing the documents due to  deregulation in the financial industry.
+
+# Summary 
+
+```{r}
+df_SBA<-df_SBA %>%
+mutate(
+DisbursementDate=as.Date(DisbursementDate, format="%m/%d/%Y"),              #Mutate DisbursementDate, ApprovalDate & ChgOffDate    
+ApprovalDate=as.Date(ApprovalDate, format="%m/%d/%Y"),
+ChgOffDate=as.Date(ChgOffDate, format="%m/%d/%Y"),
+) %>%
+mutate(
+Disburse_month=month(DisbursementDate, label = TRUE),
+Disburse_year=year(DisbursementDate),
+ApprovalDate_month=month(ApprovalDate, label = TRUE),
+ApprovalDate_year=year(ApprovalDate),
+ChgOffDate_month=month(ChgOffDate, label = TRUE),
+ChgOffDate_year=year(ChgOffDate)
+)
+
+
+A<-df_SBA %>%
+select(ApprovalDate_month)%>%
+group_by(ApprovalDate_month)%>%
+filter(is.na(ApprovalDate_month)==FALSE)%>%
+summarise(Total_no_of_loans_approved=n())
+
+D <-df_SBA %>%
+select(Disburse_month)%>%
+group_by(Disburse_month)%>%
+filter(is.na(Disburse_month)==FALSE)%>%
+summarise(Total_no_of_loans_disbursed=n())
+
+C <-df_SBA %>%
+select(ChgOffDate_month)%>%
+group_by(ChgOffDate_month)%>%
+filter(is.na(ChgOffDate_month)==FALSE)%>%
+summarise(Total_no_of_loans_ChgOff=n())
+df_month <- data.frame (col1 = A, col2 = D, col3 = C)
+colnames(df_month)[1] <- "Months"
+colnames(df_month)[2] <- "Loans_approved"
+colnames(df_month)[4] <- "Loans_Disbursed"
+colnames(df_month)[6] <- "Loans_ChgOff"
+kable
+(df_month %>%
+select(Months,Loans_approved,Loans_Disbursed,Loans_ChgOff))
+```
+
+
+   Depicted below is the  month on month summary of the loans applied, sanctioned, disbursed and charged off by the banks in USA for the period 1960 to 2015 in each months
+  Conclusion of loans approved The number of loans approved is over 60K for each month and less than 85K while major loans approved before the summer and Fall and the banks have disbursed the loans during the peak season summer and after fall during Oct . The frequency of charge-off loans over the months has been pretty much the same except the spike in May,June and August
+```{r}
+
+```
+
